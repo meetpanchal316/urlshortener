@@ -1,0 +1,16 @@
+version: '3.8'
+services:
+  backend:
+    build: ./backend
+    ports:
+      - "5000:5000"
+    environment:
+      MONGODB_URI: mongodb+srv://panchalmeet316:meetrocks@cluster0.hkzy72u.mongodb.net/urlshortener
+      PORT: 5000
+      BASE_URL: http://localhost:5000
+  frontend:
+    build: ./frontend
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend

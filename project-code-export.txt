@@ -1,0 +1,448 @@
+// url-shortener - Complete Project Code
+// Generated on: 2/9/2026, 2:55:35 PM
+// Total files: 19
+
+// PASTE THIS ENTIRE CODE TO ANY AI ASSISTANT
+// They can recreate your project structure from this
+
+const projectFiles = {
+  'backend\.gitignore': `node_modules/
+.env
+.DS_Store`,
+
+  'backend\package.json': `{
+  "name": "url-shortener-backend",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "nodemon src/server.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "mongoose": "^8.0.0",
+    "cors": "^2.8.5",
+    "dotenv": "^16.3.1",
+    "nanoid": "^5.0.3"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.1"
+  }
+}`,
+
+  'backend\src\config\db.js': `import mongoose from 'mongoose';
+
+const connectDB = async () => {
+  try {
+    await mongoose.connect(process.env.MONGODB_URI);
+    console.log('MongoDB Connected');
+  } catch (error) {
+    console.error('MongoDB Error:', error.message);
+  }
+};
+
+export default connectDB;`,
+
+  'backend\src\models\Url.js': `import mongoose from 'mongoose';
+
+const urlSchema = new mongoose.Schema({
+  originalUrl: { type: String, required: true },
+  shortCode: { type: String, required: true, unique: true },
+  clicks: { type: Number, default: 0 },
+  createdAt: { type: Date, default: Date.now }
+});
+
+export default mongoose.model('Url', urlSchema);`,
+
+  'backend\src\routes\url.js': `import express from 'express';
+import { nanoid } from 'nanoid';
+import Url from '../models/Url.js';
+
+const router = express.Router();
+
+router.post('/shorten', async (req, res) => {
+  try {
+    const { originalUrl } = req.body;
+    if (!originalUrl) {
+      return res.status(400).json({ error: 'URL is required' });
+    }
+    const shortCode = nanoid(7);
+    const url = new Url({ originalUrl, shortCode });
+    await url.save();
+    res.json({
+      originalUrl: url.originalUrl,
+      shortUrl: '/' + url.shortCode,
+      shortCode: url.shortCode,
+      clicks: url.clicks
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+router.get('/urls', async (req, res) => {
+  try {
+    const urls = await Url.find().sort({ createdAt: -1 }).limit(10);
+    res.json(urls);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+router.get('/:shortCode', async (req, res) => {
+  try {
+    const url = await Url.findOne({ shortCode: req.params.shortCode });
+    if (!url) {
+      return res.status(404).json({ error: 'URL not found' });
+    }
+    url.clicks++;
+    await url.save();
+    res.redirect(url.originalUrl);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+export default router;`,
+
+  'backend\src\server.js': `import express from 'express';
+import cors from 'cors';
+import dotenv from 'dotenv';
+import connectDB from './config/db.js';
+import urlRoutes from './routes/url.js';
+
+dotenv.config();
+const app = express();
+const PORT = process.env.PORT || 5000;
+
+connectDB();
+
+app.get('/health', (req, res) => {
+  res.json({ status: 'OK' });
+});
+
+app.use(cors({ origin: process.env.FRONTEND_URL || '*' }));
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
+app.use('/api', urlRoutes);
+app.use('/', urlRoutes);
+
+app.listen(PORT, '0.0.0.0', () => {
+  console.log('Backend running on port ' + PORT);
+});`,
+
+  'docker-compose.yaml': `version: '3.8'
+services:
+  backend:
+    build: ./backend
+    ports:
+      - "5000:5000"
+    environment:
+      MONGODB_URI: mongodb+srv://panchalmeet316:meetrocks@cluster0.hkzy72u.mongodb.net/urlshortener
+      PORT: 5000
+      BASE_URL: http://localhost:5000
+  frontend:
+    build: ./frontend
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend`,
+
+  'frontend\.gitignore': `node_modules/
+.DS_Store`,
+
+  'frontend\package.json': `{
+  "name": "url-shortener-frontend",
+  "version": "1.0.0",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2"
+  }
+}`,
+
+  'frontend\public\css\style.css': `* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: system-ui, -apple-system, sans-serif; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height: 100vh; }
+.app { max-width: 900px; margin: 0 auto; padding: 20px; }
+.header { text-align: center; color: white; margin-bottom: 40px; padding-top: 40px; }
+.header h1 { font-size: 3rem; margin-bottom: 10px; }
+.header p { font-size: 1.2rem; opacity: 0.9; }
+.main { background: white; border-radius: 20px; padding: 40px; box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3); }
+.url-shortener { margin-bottom: 40px; }
+.url-shortener form { display: flex; gap: 10px; margin-bottom: 20px; }
+.url-shortener input[type="url"] { flex: 1; padding: 15px; border: 2px solid #e0e0e0; border-radius: 10px; font-size: 1rem; }
+.url-shortener input[type="url"]:focus { outline: none; border-color: #667eea; }
+.url-shortener button { padding: 15px 30px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; border-radius: 10px; font-size: 1rem; font-weight: 600; cursor: pointer; }
+.url-shortener button:hover { transform: translateY(-2px); }
+.error { padding: 15px; background: #fee; color: #c33; border-radius: 10px; margin-top: 15px; }
+.result { padding: 20px; background: #f0f7ff; border-radius: 10px; margin-top: 20px; }
+.result p { margin-bottom: 10px; font-weight: 600; color: #667eea; }
+.short-url-container { display: flex; gap: 10px; }
+.short-url-container input { flex: 1; padding: 12px; border: 2px solid #667eea; border-radius: 8px; }
+.short-url-container button { padding: 12px 25px; background: #667eea; color: white; border: none; border-radius: 8px; cursor: pointer; }
+.url-list { border-top: 2px solid #f0f0f0; padding-top: 30px; }
+.url-list h2 { margin-bottom: 20px; color: #333; }
+.url-list .empty { text-align: center; color: #999; padding: 40px; }
+.url-items { display: flex; flex-direction: column; gap: 15px; }
+.url-item { padding: 20px; background: #f9f9f9; border-radius: 10px; display: flex; justify-content: space-between; align-items: center; }
+.url-item:hover { transform: translateX(5px); background: #f0f0f0; }
+.url-info { flex: 1; display: flex; flex-direction: column; gap: 8px; }
+.original-url { color: #333; text-decoration: none; font-size: 0.95rem; }
+.short-url { color: #667eea; text-decoration: none; font-weight: 600; }
+.clicks { background: #667eea; color: white; padding: 8px 15px; border-radius: 20px; font-size: 0.85rem; }
+@media (max-width: 768px) { .url-shortener form { flex-direction: column; } }`,
+
+  'frontend\public\index.html': `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>URL Shortener</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <div class="app">
+    <header class="header">
+      <h1>URL Shortener</h1>
+      <p>Shorten your long URLs with ease</p>
+    </header>
+    <main class="main">
+      <div class="url-shortener">
+        <form id="shortenForm">
+          <input type="url" id="urlInput" placeholder="Enter your long URL here..." required>
+          <button type="submit">Shorten URL</button>
+        </form>
+        <div id="error" class="error" style="display: none;"></div>
+        <div id="result" class="result" style="display: none;">
+          <p>Your shortened URL:</p>
+          <div class="short-url-container">
+            <input type="text" id="shortUrl" readonly>
+            <button onclick="copyToClipboard()">Copy</button>
+          </div>
+        </div>
+      </div>
+      <div class="url-list">
+        <h2>Recent URLs</h2>
+        <div class="url-items" id="urlList">
+          <div class="empty">Loading...</div>
+        </div>
+      </div>
+    </main>
+  </div>
+  <script src="/js/config.js"></script>
+  <script src="/js/app.js"></script>
+</body>
+</html>`,
+
+  'frontend\public\js\app.js': `document.addEventListener('DOMContentLoaded', loadUrls);
+
+document.getElementById('shortenForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const urlInput = document.getElementById('urlInput');
+  const errorDiv = document.getElementById('error');
+  const resultDiv = document.getElementById('result');
+  const shortUrlInput = document.getElementById('shortUrl');
+  
+  errorDiv.style.display = 'none';
+  resultDiv.style.display = 'none';
+  
+  const originalUrl = urlInput.value.trim();
+  if (!originalUrl) {
+    showError('Please enter a URL');
+    return;
+  }
+  
+  try {
+    const response = await fetch('/api/shorten', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ originalUrl })
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'Failed to shorten URL');
+    shortUrlInput.value = data.shortUrl;
+    resultDiv.style.display = 'block';
+    urlInput.value = '';
+    loadUrls();
+  } catch (error) {
+    showError(error.message);
+  }
+});
+
+async function loadUrls() {
+  try {
+    const response = await fetch('/api/urls');
+    const urls = await response.json();
+    const urlList = document.getElementById('urlList');
+    if (urls.length === 0) {
+      urlList.innerHTML = '<div class="empty">No URLs shortened yet.</div>';
+      return;
+    }
+    urlList.innerHTML = urls.map(url => {
+      const shortUrl = '/' + url.shortCode;
+      const displayUrl = url.originalUrl.length > 50 ? url.originalUrl.substring(0, 50) + '...' : url.originalUrl;
+      return '<div class="url-item"><div class="url-info"><a href="' + url.originalUrl + '" target="_blank" class="original-url">' + displayUrl + '</a><a href="' + shortUrl + '" target="_blank" class="short-url">' + shortUrl.replace('http://', '').replace('https://', '') + '</a></div><div class="url-stats"><span class="clicks">' + url.clicks + ' clicks</span></div></div>';
+    }).join('');
+  } catch (error) {
+    console.error('Error loading URLs:', error);
+    document.getElementById('urlList').innerHTML = '<div class="empty">Error loading URLs</div>';
+  }
+}
+
+function showError(message) {
+  const errorDiv = document.getElementById('error');
+  errorDiv.textContent = message;
+  errorDiv.style.display = 'block';
+}
+
+function copyToClipboard() {
+  const shortUrlInput = document.getElementById('shortUrl');
+  shortUrlInput.select();
+  document.execCommand('copy');
+  alert('Copied to clipboard!');
+}`,
+
+  'frontend\server.js': `const express = require('express');
+const path = require('path');
+const app = express();
+const PORT = process.env.PORT || 3000;
+
+app.use(express.static(path.join(__dirname, 'public')));
+
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
+app.listen(PORT, '0.0.0.0', () => {
+  console.log('Frontend running on port ' + PORT);
+});`,
+
+  'k8s\backend-deployment.yaml': `apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend-deployment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: backend
+  template:
+    metadata:
+      labels:
+        app: backend
+    spec:
+      containers:
+      - name: backend
+        image: panchalmeet/urlshortenerbackend:v111
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 5000
+        env:
+        - name: MONGODB_URI
+          valueFrom:
+            secretKeyRef:
+              name: mongodb-secret
+              key: MONGODB_URI`,
+
+  'k8s\backend-service.yaml': `apiVersion: v1
+kind: Service
+metadata:
+  name: backend-service
+spec:
+  selector:
+    app: backend
+  ports:
+  - port: 5000
+    targetPort: 5000
+  type: ClusterIP`,
+
+  'k8s\frontend-deployment.yaml': `apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend-deployment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: frontend
+  template:
+    metadata:
+      labels:
+        app: frontend
+    spec:
+      containers:
+      - name: frontend
+        image: panchalmeet/urlshortenerfrontend:v111
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 3000`,
+
+  'k8s\frontend-service.yaml': `apiVersion: v1
+kind: Service
+metadata:
+  name: frontend-service
+spec:
+  selector:
+    app: frontend
+  ports:
+  - port: 3000
+    targetPort: 3000
+  type: ClusterIP`,
+
+  'k8s\ingress.yaml': `apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: url-shortener-ingress
+spec:
+  ingressClassName: nginx
+  rules:
+  - http:
+      paths:
+      - path: /api
+        pathType: Prefix
+        backend:
+          service:
+            name: backend-service
+            port:
+              number: 5000
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: frontend-service
+            port:
+              number: 3000`,
+
+  'README.md': `# URL Shortener
+
+Frontend/Backend structure with Node.js/Express (no React!)
+
+## Run Locally
+
+Terminal 1:
+cd backend && npm install && npm run dev
+
+Terminal 2:
+cd frontend && npm install && npm start
+
+Visit http://localhost:3000
+
+## Deploy
+
+docker-compose up
+
+OR
+
+cd backend && docker build -t panchalmeet/urlshortener-backend:v1 . && docker push panchalmeet/urlshortener-backend:v1
+cd frontend && docker build -t panchalmeet/urlshortener-frontend:v1 . && docker push panchalmeet/urlshortener-frontend:v1
+kubectl apply -f k8s/`
+};
+
+// File count: 19
+// Project: url-shortener
